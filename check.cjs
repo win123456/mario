@@ -3,7 +3,8 @@ const gradient={addColorStop(){}};
 const transforms=[],imageDraws=[];
 const ctx=new Proxy({},{get:(_,key)=>key==='createLinearGradient'||key==='createRadialGradient'?()=>gradient:key==='setTransform'?(...args)=>transforms.push(args):key==='drawImage'?(...args)=>imageDraws.push(args):()=>{}}),elements={};
 function el(id){return elements[id]??={textContent:'',innerHTML:'',classList:{add(){},remove(){}},addEventListener(){}}}elements.game={width:1280,height:590,getContext:()=>ctx};
-class AudioContextMock{constructor(){this.currentTime=0;this.destination={}}resume(){}createOscillator(){return{frequency:{value:0},connect(){},start(){},stop(){}}}createGain(){return{gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}}}
+const audioGains=[];
+class AudioContextMock{constructor(){this.currentTime=0;this.destination={}}resume(){}createOscillator(){return{frequency:{value:0},connect(){},start(){},stop(){}}}createGain(){return{gain:{setValueAtTime(value){audioGains.push(['set',value])},linearRampToValueAtTime(value){audioGains.push(['ramp',value])},exponentialRampToValueAtTime(){}},connect(){}}}}
 class ImageMock{constructor(){this.complete=true;this.naturalWidth=323;this.naturalHeight=512}}
 const touchButtons=[...fs.readFileSync('dist/index.html','utf8').matchAll(/<button\b[^>]*data-key="([^"]+)"[^>]*>/g)].map(match=>({dataset:{key:match[1]},handlers:{},setPointerCapture(){},addEventListener(event,handler){this.handlers[event]=handler}}));
 const env={document:{getElementById:el,querySelector:()=>el('tag'),querySelectorAll:()=>touchButtons},window:{innerWidth:1280,devicePixelRatio:2,AudioContext:AudioContextMock,addEventListener(){}},Image:ImageMock,requestAnimationFrame(){},setTimeout(){},console,Math};
@@ -33,5 +34,15 @@ downButton.handlers.pointerdown({preventDefault(){},pointerId:1});assert.equal(r
 run("loadLevel();state='playing';player.x=pipeX()-16;player.y=365;player.vy=4;player.ground=false");
 downButton.handlers.pointerdown({preventDefault(){},pointerId:2});assert.equal(run('routeMode'),'main');run('for(let i=0;i<8;i++)update()');assert.equal(run('routeMode'),'tunnel','Holding down should enter once the player lands on the pipe');downButton.handlers.pointercancel();assert.equal(run('keys.ArrowDown'),false);
 run("loadLevel();state='playing';player.x=70;player.y=442;player.ground=true");downButton.handlers.pointerdown({preventDefault(){},pointerId:3});run('update()');assert.equal(run('routeMode'),'main','Down away from a pipe must not teleport');downButton.handlers.lostpointercapture();assert.equal(run('keys.ArrowDown'),false);
+audioGains.length=0;run('muted=false;musicTone(440)');assert(audioGains.some(([type,value])=>type==='ramp'&&value===.022));
+audioGains.length=0;run('tone(440)');assert(audioGains.some(([type,value])=>type==='set'&&value===.055),'Effects keep their existing volume');
+audioGains.length=0;run('muted=true;musicTone(440);tone(440)');assert.equal(audioGains.length,0);run('muted=false');
+for(const failure of ['missing','constructor','resume']){
+ env.audioFailure=failure;
+ assert.doesNotThrow(()=>run(`(()=>{const saved=window.AudioContext;try{window.AudioContext=audioFailure==='missing'?undefined:audioFailure==='constructor'?class{constructor(){throw Error('audio denied')}}:class{resume(){throw Error('audio denied')}};audioCtx=null;state='ready';start();if(state!=='playing')throw Error('Game did not start')}finally{window.AudioContext=saved;audioCtx=null}})()`));
+}
+run("loadLevel();state='playing';health=1;invincible=0;attack=0;player.x=100;player.y=442;player.vx=0;player.vy=0;enemies=[{x:100,y:466,w:40,h:34,vx:0,min:80,max:140,kind:'walker',alive:true},{x:110,y:466,w:40,h:34,vx:0,min:80,max:140,kind:'walker',alive:true}];update()");assert.equal(run('health'),0);assert.equal(run('state'),'over');assert.doesNotThrow(()=>run('hurt();hurt(true);update()'));assert.equal(run('health'),0);
+run("loadLevel();state='playing';health=1;invincible=0;player.x=4810;player.y=442;player.vx=0;player.vy=0;enemies=[{x:4810,y:466,w:40,h:34,vx:0,min:4800,max:4860,kind:'walker',alive:true}];update()");assert.equal(run('state'),'over','A fatal hit at the finish must not award a level clear');
+run("loadLevel();state='playing';health=1;invincible=0;player.x=100;player.y=442;player.vx=0;player.vy=0;enemies=[];fireballs=[{x:110,y:470,vx:0,vy:0,life:30},{x:110,y:470,vx:0,vy:0,life:30}];update()");assert.equal(run('health'),0);assert.equal(run('state'),'over');
 run("storyArt.teacher.complete=false;storyArt.cottage.complete=false;storyArt.valley.complete=false;loadLevel();draw()");
-console.log('PASS: movement, jump, stars, tie combat, pause, health, all level transitions, victory/restart, moving platforms/stars, cloud/tunnel routes, lava, illustrated rendering and missing-image fallbacks.');
+console.log('PASS: gameplay and routes, mobile pipe input, moving-platform artwork, Retina rendering, music/effect levels, mute, unavailable audio, simultaneous fatal collisions, fatal finish hit, repeated fireball hits and image fallbacks.');
