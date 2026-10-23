@@ -7,3 +7,6 @@ node_modules/
 *.log
 *-deploy.tar.gz
 vercel-deployment.json
+
+# Full-resolution generation masters stay local; runtime assets are tracked.
+dist/assets/storybook/*-source.png
