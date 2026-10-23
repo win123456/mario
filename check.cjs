@@ -1,11 +1,15 @@
 const vm=require('vm'),fs=require('fs'),assert=require('assert');
 const gradient={addColorStop(){}};
-const ctx=new Proxy({},{get:(_,key)=>key==='createLinearGradient'||key==='createRadialGradient'?()=>gradient:()=>{}}),elements={};
+const transforms=[],imageDraws=[];
+const ctx=new Proxy({},{get:(_,key)=>key==='createLinearGradient'||key==='createRadialGradient'?()=>gradient:key==='setTransform'?(...args)=>transforms.push(args):key==='drawImage'?(...args)=>imageDraws.push(args):()=>{}}),elements={};
 function el(id){return elements[id]??={textContent:'',innerHTML:'',classList:{add(){},remove(){}},addEventListener(){}}}elements.game={width:1280,height:590,getContext:()=>ctx};
 class AudioContextMock{constructor(){this.currentTime=0;this.destination={}}resume(){}createOscillator(){return{frequency:{value:0},connect(){},start(){},stop(){}}}createGain(){return{gain:{setValueAtTime(){},linearRampToValueAtTime(){},exponentialRampToValueAtTime(){}},connect(){}}}}
-class ImageMock{constructor(){this.complete=true;this.naturalWidth=256;this.naturalHeight=256}}
-const env={document:{getElementById:el,querySelector:()=>el('tag'),querySelectorAll:()=>[]},window:{innerWidth:1280,AudioContext:AudioContextMock,addEventListener(){}},Image:ImageMock,requestAnimationFrame(){},setTimeout(){},console,Math};
+class ImageMock{constructor(){this.complete=true;this.naturalWidth=323;this.naturalHeight=512}}
+const env={document:{getElementById:el,querySelector:()=>el('tag'),querySelectorAll:()=>[]},window:{innerWidth:1280,devicePixelRatio:2,AudioContext:AudioContextMock,addEventListener(){}},Image:ImageMock,requestAnimationFrame(){},setTimeout(){},console,Math};
 vm.createContext(env);for(const file of ['dist/storybook.js','dist/game.js'])vm.runInContext(fs.readFileSync(file,'utf8'),env);function run(s){return vm.runInContext(s,env)}
+assert.equal(elements.game.width,2560);assert.equal(elements.game.height,1180);assert.equal(run('W'),1280);assert.deepEqual(transforms[0],[2,0,0,2,0,0]);
+run('storyHero(70,442,1)');const heroDraw=imageDraws.at(-1);assert(Math.abs(heroDraw[3]/heroDraw[4]-323/512)<1e-9);
+const decorationFrames=run(`(()=>{const originalDaisy=daisy,seen=[];daisy=(...args)=>seen.push(args);const platform={x:500,y:311,w:145,h:28};const frames=[];for(let i=0;i<100;i++){platform.x=500+Math.sin(i*.1)*58;platform.y=311+Math.cos(i*.1)*4;seen.length=0;paintPlatform(platform);frames.push(JSON.stringify(seen))}daisy=originalDaisy;return frames})()`);assert(decorationFrames[0]!=='[]');assert(decorationFrames.every(f=>f===decorationFrames[0]),'Flowers must retain local positions, size and color as a platform moves');
 run('draw();start();for(let i=0;i<45;i++)update()');assert.equal(run('player.ground'),true);assert.equal(run('player.y'),442);
 run('keys.Space=true;update()');assert(run('player.vy')<0);run('keys.Space=false;for(let i=0;i<60;i++)update()');assert(run('player.ground'));
 run('player.x=stars[0].x-16;player.y=stars[0].y-28;update()');assert(run('score')>=1);

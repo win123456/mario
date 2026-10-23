@@ -7,10 +7,12 @@ The user supplied a painted Number Hills reference. This pass adapts its lightin
 - `dist/storybook.js`: visual helpers and generated-art loading; no collision logic.
 - `dist/assets/storybook/valley.jpg`: distant illustrated valley, moved slowly relative to the camera.
 - `dist/assets/storybook/cottage.png`: transparent cottage; Thai plaque text is drawn by Canvas.
-- `dist/assets/storybook/teacher.png`: transparent teacher sprite; walk sway, jump tilt and tie attack are drawn at runtime.
+- `dist/assets/storybook/teacher-hd.png`: alpha-trimmed 323 × 512 transparent teacher sprite, rendered with its natural aspect ratio; walk sway, jump tilt and tie attack are drawn at runtime.
 - `dist/assets/storybook/tree.png`: transparent tree sprite.
 
 Character motion uses a single painted sprite with runtime sway/tilt, rather than a frame-by-frame walk sheet. The ground, stars, flowers, vines, fences, lanterns and slime shading are rendered with Canvas and follow the current world coordinates. The view width on mobile follows the actual canvas rectangle so the starting character is not cropped off-screen.
+
+Canvas uses a device-pixel-ratio backing buffer (capped at 3) with logical physics coordinates unchanged. Platform artwork is drawn in local coordinates with a persistent per-platform seed, so flowers, grass, rocks and vines do not change their appearance while platforms move.
 
 ## Generation provenance
 
